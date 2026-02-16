@@ -1,0 +1,27 @@
+{
+  "name": "study-tracker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "node index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nevoaftabi/todo-app-2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nevoaftabi/todo-app-2/issues"
+  },
+  "homepage": "https://github.com/nevoaftabi/todo-app-2#readme",
+  "dependencies": {
+    "concurrently": "^9.2.1",
+    "dotenv": "^17.2.4",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0"
+  }
+}

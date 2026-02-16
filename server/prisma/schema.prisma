@@ -1,0 +1,33 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum Status {
+    OPENED
+    CLAIMED
+    DONE
+}
+
+model Task {
+    id String @id @default(uuid())
+    title String
+    description String
+    category String
+    pay Decimal @db.Decimal(10, 2)
+    status Status @default(OPENED)
+    createdAt DateTime @default(now())
+    claims Claim[]
+    city String
+}
+
+model Claim {
+    id String @id @default(uuid())
+    taskId String @unique
+    task Task @relation(fields: [taskId], references: [id])
+    claimerName String
+    claimerEmail String
+}
