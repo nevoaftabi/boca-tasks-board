@@ -4,13 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev:server": "ts-node-dev --respawn src/index.ts",
+    "dev:server": "ts-node-dev --files --respawn src/index.ts",
     "dev:typecheck": "tsc --noEmit --watch",
     "dev": "concurrently \"npm:dev:server\" \"npm:dev:typecheck\"",
     "build": "tsc",
     "start": "node dist/index.js",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +29,9 @@
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6"
+    "@types/express": "^5.0.6",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.2.2",
+    "vitest": "^4.0.18"
   }
 }
