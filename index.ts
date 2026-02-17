@@ -6,5 +6,5 @@ concurrently(
     { name: "server", command: "ts-node-dev --files --respawn src/index.ts", cwd: "server" },
     //{ name: "client", command: "npm run dev", cwd: "client" },
   ],
-  { killOthers: ["failure", "success"] }
+  { killOthersOn: ["failure", "success"] }
 );
