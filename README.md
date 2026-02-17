@@ -8,6 +8,6 @@ The task can be claimed by multiple people. Every person who claims a task will 
 * TypeScript
 * Malformed JSON error handling
 * Data validation with Zod
-* PostgreSQL database
+* PostgreSQL database with Render
 * Prisma ORM
 * Jest for unit testing
