@@ -40,4 +40,4 @@ export const PatchTaskBody = z.object({
 
 export const PatchTaskParams = z.object({
   id: z.uuid()
-})
+});
