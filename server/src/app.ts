@@ -44,7 +44,7 @@ app.get("/tasks/:id", async (req: Request<{ id: string }>, res: Response) => {
     if (!parsed.success) {
       return res.status(400).json(parsed.error.flatten());
     }
-    const { id } = req.params;
+    const { id } = parsed.data;
     const task = await prismaClient.task.findUnique({
       where: { id },
     });
