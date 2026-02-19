@@ -5,8 +5,11 @@ import {
   GetTask,
   UpdateTaskParams,
   UpdateTaskBody,
+  PatchTaskBody,
+  PatchTaskParams,
 } from "./services/schemas";
 import { prismaClient } from "./services/prisma";
+import { parse } from "dotenv";
 
 export const app = express();
 
@@ -91,30 +94,28 @@ app.post("/tasks", async (req: Request, res: Response) => {
     });
 
     return res.status(201).json({ id: task.id });
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
     return res.sendStatus(500);
   }
 });
 
-app.put("/tasks/:id", async (req: Request<{id: string}>, res: Response) => {
+app.patch("/tasks/:id", async (req: Request<{ id: string }>, res: Response) => {
   try {
-    const parsedBody = UpdateTaskBody.safeParse(req.body);
-    const parsedParams = UpdateTaskParams.safeParse(req.params);
+    const parsedParams = PatchTaskParams.safeParse(req.params);
+    const parsedBody = PatchTaskBody.safeParse(req.body);
 
-    if(!parsedBody.success) {
+    if (!parsedParams.success) {
+      return res.status(400).json(parsedParams.error.flatten());
+    }
+    if (!parsedBody.success) {
       return res.status(400).json(parsedBody.error.flatten());
     }
 
-    if(!parsedParams.success) {
-      return res.status(400).json(parsedParams.error.flatten())
-    }
-
-    const { id } = req.params;
-    console.log(parsedBody.data);
+    const { id } = parsedParams.data;
 
     const task = await prismaClient.task.update({
-      where: { 
+      where: {
         id
       },
       data: {
@@ -122,14 +123,51 @@ app.put("/tasks/:id", async (req: Request<{id: string}>, res: Response) => {
       }
     });
 
-    return res.status(200).json({ task });
+    return res.status(200).json({task});
 
-  } catch (error) {
+    
+  } catch (error: any) {
     console.log(error);
-    if (error.code === "P2025") { 
+    if (error?.code === "P2025") {
       return res.sendStatus(404);
     }
-    
+
+    res.sendStatus(500);
+  }
+});
+
+app.put("/tasks/:id", async (req: Request<{ id: string }>, res: Response) => {
+  try {
+    const parsedBody = UpdateTaskBody.safeParse(req.body);
+    const parsedParams = UpdateTaskParams.safeParse(req.params);
+
+    if (!parsedBody.success) {
+      return res.status(400).json(parsedBody.error.flatten());
+    }
+
+    if (!parsedParams.success) {
+      return res.status(400).json(parsedParams.error.flatten());
+    }
+
+    const { id } = req.params;
+    console.log(parsedBody.data);
+
+    const task = await prismaClient.task.update({
+      where: {
+        id,
+      },
+      data: {
+        ...parsedBody.data,
+      },
+    });
+
+    return res.status(200).json({ task });
+  } catch (error) {
+    console.log(error);
+    if (error.code === "P2025") {
+      return res.sendStatus(404);
+    }
+
     res.sendStatus(500);
   }
 });

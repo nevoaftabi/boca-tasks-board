@@ -38,6 +38,6 @@ export const PatchTaskBody = z.object({
   error: "Body must include at least one field to update"
 });
 
-export const TaskPatchParams = z.object({
+export const PatchTaskParams = z.object({
   id: z.uuid()
 })
