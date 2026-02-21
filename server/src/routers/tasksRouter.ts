@@ -7,19 +7,31 @@ import {
   UpdateTaskBody,
   PatchTaskBody,
   PatchTaskParams,
-  CreateClaimParams,
-  CreateClaimBody,
-  GetClaimsParams,
-  GetClaimParms,
+  GetAllTasks,
 } from "../services/schemas";
 import { prismaClient } from "../services/prisma";
+import { claimsRouter } from "./claimsRouter";
 
 export const tasksRouter = express.Router();
 
-tasksRouter.get("/", async (_req: Request, res: Response) => {
+tasksRouter.use("/:taskId/claims", claimsRouter);
+
+tasksRouter.get("/", async (req: Request, res: Response) => {
   try {
-    const tasks = await prismaClient.task.findMany();
-    return res.json({ tasks });
+    const parsedQuery = GetAllTasks.safeParse(req.query);
+
+    if(!parsedQuery.success) {
+      return res.status(400).json(parsedQuery.error.flatten());
+    }
+
+    const { includeClaims } = parsedQuery.data;
+
+    const tasks = await prismaClient.task.findMany({
+      include: {
+        claims: includeClaims,
+      },
+    });
+    return res.status(200).json({ tasks });
   } catch (error) {
     console.log(error);
     return res.sendStatus(500);
@@ -35,6 +47,9 @@ tasksRouter.get("/:id", async (req: Request<{ id: string }>, res: Response) => {
     const { id } = parsed.data;
     const task = await prismaClient.task.findUnique({
       where: { id },
+      include: {
+        claims: true,
+      },
     });
     if (!task) {
       return res.sendStatus(404);
@@ -90,7 +105,7 @@ tasksRouter.post("/", async (req: Request, res: Response) => {
 
 tasksRouter.patch(
   "/:id",
-  async (req: Request<{ id: string }>, res: Response) => {
+  async (req: Request, res: Response) => {
     try {
       const parsedParams = PatchTaskParams.safeParse(req.params);
       const parsedBody = PatchTaskBody.safeParse(req.body);
@@ -125,7 +140,7 @@ tasksRouter.patch(
   },
 );
 
-tasksRouter.put("/:id", async (req: Request<{ id: string }>, res: Response) => {
+tasksRouter.put("/:id", async (req: Request, res: Response) => {
   try {
     const parsedBody = UpdateTaskBody.safeParse(req.body);
     const parsedParams = UpdateTaskParams.safeParse(req.params);
@@ -159,110 +174,3 @@ tasksRouter.put("/:id", async (req: Request<{ id: string }>, res: Response) => {
     res.sendStatus(500);
   }
 });
-
-//GET /tasks/:taskId/claims
-//GET /tasks/:taskId/claims/:claimId
-// POST /tasks/:taskId/claims
-
-tasksRouter.get(
-  "/:taskId/claims/:claimId",
-  async (req: Request<{ taskId: string, claimId: string }>, res: Response) => {
-    try {
-      const parsedParams = GetClaimParms.safeParse(req.params);
-
-      if (!parsedParams.success) {
-        return res.status(400).json(parsedParams.error.flatten());
-      }
-
-      const { taskId, claimId } = parsedParams.data;
-
-      const claim = await prismaClient.claim.findUnique({
-        where: {
-          id: claimId,
-          taskId
-        },
-      });
-
-      if(!claim) {
-        return res.sendStatus(404);
-      }
-
-      return res.status(200).json({ claim });
-    } catch (error: any) {
-      console.log(error);
-      res.sendStatus(500);
-    }
-  },
-);
-
-tasksRouter.get(
-  "/:taskId/claims",
-  async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const parsedParams = GetClaimsParams.safeParse(req.params);
-
-      if (!parsedParams.success) {
-        return res.status(400).json(parsedParams.error.flatten());
-      }
-
-      const { taskId } = parsedParams.data;
-
-      const claims = await prismaClient.claim.findMany({
-        where: {
-          taskId,
-        },
-      });
-
-      return res.status(200).json({ claims });
-    } catch (error: any) {
-      console.log(error);
-
-      if (error?.code === "P2025") {
-        return res.sendStatus(404);
-      }
-
-      res.sendStatus(500);
-    }
-  },
-);
-
-tasksRouter.post(
-  "/:taskId/claims",
-  async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const parsedParams = CreateClaimParams.safeParse(req.params);
-      const parsedBody = CreateClaimBody.safeParse(req.body);
-
-      if (!parsedParams.success) {
-        console.log("invalid params");
-        return res.status(400).json(parsedParams.error.flatten());
-      }
-
-      if (!parsedBody.success) {
-        console.log("ivalid body");
-        return res.status(400).json(parsedBody.error.flatten());
-      }
-
-      const { taskId } = parsedParams.data;
-      const { claimerName, claimerEmail } = parsedBody.data;
-
-      await prismaClient.claim.create({
-        data: {
-          claimerEmail,
-          claimerName,
-          taskId,
-        },
-      });
-
-      res.sendStatus(201);
-    } catch (error: any) {
-      console.log(error);
-
-      if (error?.code === "P2025") {
-        return res.sendStatus(404);
-      }
-
-      res.sendStatus(500);
-    }
-  },
-);

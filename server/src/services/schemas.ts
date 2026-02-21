@@ -1,7 +1,14 @@
-import { z } from "zod";
+import { boolean, z } from "zod";
 
 export const DeleteTask = z.object({
   id: z.uuid(),
+});
+
+export const GetAllTasks = z.object({
+  includeClaims: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export const GetTask = z.object({
@@ -28,34 +35,36 @@ export const UpdateTaskParams = z.object({
   id: z.uuid(),
 });
 
-export const PatchTaskBody = z.object({
-  title: z.string().trim().min(1).optional(),
-  subject: z.string().trim().min(1).optional(),
-  city: z.string().trim().min(1).optional(),
-  description: z.string().trim().min(1).optional(),
-  pay: z.number().min(10),
-}).refine((obj) => Object.keys(obj).length > 0, {
-  error: "Body must include at least one field to update"
-});
+export const PatchTaskBody = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    subject: z.string().trim().min(1).optional(),
+    city: z.string().trim().min(1).optional(),
+    description: z.string().trim().min(1).optional(),
+    pay: z.number().min(10),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, {
+    error: "Body must include at least one field to update",
+  });
 
 export const PatchTaskParams = z.object({
-  id: z.uuid()
+  id: z.uuid(),
 });
 
 export const CreateClaimBody = z.object({
   claimerName: z.string().trim().min(1),
-  claimerEmail: z.email()
+  claimerEmail: z.email(),
 });
 
 export const CreateClaimParams = z.object({
-  taskId: z.uuid()
+  taskId: z.uuid(),
 });
 
 export const GetClaimsParams = z.object({
-  taskId: z.uuid()
+  taskId: z.uuid(),
 });
 
 export const GetClaimParms = z.object({
   taskId: z.uuid(),
-  claimId: z.uuid()
-})
+  claimId: z.uuid(),
+});
