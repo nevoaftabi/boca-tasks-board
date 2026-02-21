@@ -30,4 +30,5 @@ model Claim {
     task Task @relation(fields: [taskId], references: [id])
     claimerName String
     claimerEmail String
+    createdAt DateTime @default(now())
 }

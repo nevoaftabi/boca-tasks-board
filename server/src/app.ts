@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
-import { taskRouter } from "./routers/tasksRouter";
+import { tasksRouter } from "./routers/tasksRouter";
 
 export const app = express();
 
@@ -18,6 +18,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.use('/tasks', taskRouter);
+app.use("/tasks", tasksRouter);
 
 app.use((_: Request, res: Response) => res.sendStatus(404));
