@@ -1,16 +1,20 @@
+// TODO: Require passwords for POST, PUT, PATCH, and DELETE requests
+
 import express, { Router, Request, Response } from "express";
 import {
-  DeleteTask,
+  DeleteTaskParams,
   CreateTask,
-  GetTask,
-  UpdateTaskParams,
-  UpdateTaskBody,
   PatchTaskBody,
   PatchTaskParams,
   GetAllTasks,
-} from "../services/schemas";
+  GetTask,
+  UpdateTaskBody,
+  UpdateTaskParams,
+  DeleteTaskBody,
+} from "../schemas/tasksSchema";
 import { prismaClient } from "../services/prisma";
 import { claimsRouter } from "./claimsRouter";
+import { hashPassword, verifyPassword } from "../services/bcryptUtils";
 
 export const tasksRouter = express.Router();
 
@@ -20,15 +24,31 @@ tasksRouter.get("/", async (req: Request, res: Response) => {
   try {
     const parsedQuery = GetAllTasks.safeParse(req.query);
 
-    if(!parsedQuery.success) {
+    if (!parsedQuery.success) {
       return res.status(400).json(parsedQuery.error.flatten());
     }
 
     const { includeClaims } = parsedQuery.data;
 
     const tasks = await prismaClient.task.findMany({
-      include: {
-        claims: includeClaims,
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        description: true,
+        pay: true,
+        claims: includeClaims
+          ? {
+              select: {
+                id: true,
+                taskId: true,
+                claimerName: true,
+                claimerEmail: true,
+                createdAt: true,
+                // also don’t select claim.password if that’s sensitive
+              },
+            }
+          : false,
       },
     });
     return res.status(200).json({ tasks });
@@ -40,15 +60,32 @@ tasksRouter.get("/", async (req: Request, res: Response) => {
 
 tasksRouter.get("/:id", async (req: Request<{ id: string }>, res: Response) => {
   try {
-    const parsed = GetTask.safeParse(req.params);
+    const parsed = GetTask.safeParse({ ...req.params, ...req.query });
     if (!parsed.success) {
       return res.status(400).json(parsed.error.flatten());
     }
-    const { id } = parsed.data;
+    const { id, includeClaims } = parsed.data;
+
     const task = await prismaClient.task.findUnique({
       where: { id },
-      include: {
-        claims: true,
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        description: true,
+        pay: true,
+        claims: includeClaims
+          ? {
+              select: {
+                id: true,
+                taskId: true,
+                claimerName: true,
+                claimerEmail: true,
+                createdAt: true,
+                // also don’t select claim.password if that’s sensitive
+              },
+            }
+          : false,
       },
     });
     if (!task) {
@@ -61,39 +98,64 @@ tasksRouter.get("/:id", async (req: Request<{ id: string }>, res: Response) => {
   }
 });
 
-tasksRouter.delete(
-  "/:id",
-  async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const parsed = DeleteTask.safeParse(req.params);
-      if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+tasksRouter.delete("/:id", async (req: Request, res: Response) => {
+  try {
+    const parsedParams = DeleteTaskParams.safeParse(req.params);
+    const parsedBody = DeleteTaskBody.safeParse(req.body);
 
-      const { id } = parsed.data;
+    if (!parsedParams.success) {
+      return res.status(400).json(parsedParams.error.flatten());
+    }
 
+    if (!parsedBody.success) {
+      return res.status(400).json(parsedBody.error.flatten());
+    }
+
+    const { id } = parsedParams.data;
+    const { password } = parsedBody.data;
+
+    const task = await prismaClient.task.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        password: true,
+      },
+    });
+
+    if (!task) {
+      return res.sendStatus(404);
+    }
+
+    const validPassword = await verifyPassword(password, task.password);
+
+    if (validPassword) {
       await prismaClient.task.delete({ where: { id } });
       return res.sendStatus(204);
-    } catch (error) {
-      console.log(error);
-      res.sendStatus(500);
     }
-  },
-);
+
+    res.sendStatus(401);
+  } catch (error: any) {
+    if (error?.code === "P2025") {
+      console.log(`ERROR: A user tried to delete a task that doesn't exist.`);
+      return res.sendStatus(404);
+    }
+
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
 
 tasksRouter.post("/", async (req: Request, res: Response) => {
   try {
     const parsed = CreateTask.safeParse(req.body);
 
     if (!parsed.success) return res.status(400).json(parsed.error.flatten());
-    const { title, category, city, pay, description } = parsed.data;
+
+    const hashedPassword = await hashPassword(parsed.data.password);
 
     const task = await prismaClient.task.create({
-      data: {
-        title,
-        category,
-        city,
-        pay,
-        description,
-      },
+      data: { ...parsed.data, password: hashedPassword },
     });
 
     return res.status(201).json({ id: task.id });
@@ -103,54 +165,51 @@ tasksRouter.post("/", async (req: Request, res: Response) => {
   }
 });
 
-tasksRouter.patch(
-  "/:id",
-  async (req: Request, res: Response) => {
-    try {
-      const parsedParams = PatchTaskParams.safeParse(req.params);
-      const parsedBody = PatchTaskBody.safeParse(req.body);
+tasksRouter.patch("/:id", async (req: Request, res: Response) => {
+  try {
+    const parsedParams = PatchTaskParams.safeParse(req.params);
+    const parsedBody = PatchTaskBody.safeParse(req.body);
 
-      if (!parsedParams.success) {
-        return res.status(400).json(parsedParams.error.flatten());
-      }
-      if (!parsedBody.success) {
-        return res.status(400).json(parsedBody.error.flatten());
-      }
-
-      const { id } = parsedParams.data;
-
-      const task = await prismaClient.task.update({
-        where: {
-          id,
-        },
-        data: {
-          ...parsedBody.data,
-        },
-      });
-
-      return res.status(200).json({ task });
-    } catch (error: any) {
-      console.log(error);
-      if (error?.code === "P2025") {
-        return res.sendStatus(404);
-      }
-
-      res.sendStatus(500);
+    if (!parsedParams.success) {
+      return res.status(400).json(parsedParams.error.flatten());
     }
-  },
-);
+    if (!parsedBody.success) {
+      return res.status(400).json(parsedBody.error.flatten());
+    }
+
+    const { id } = parsedParams.data;
+
+    const task = await prismaClient.task.update({
+      where: {
+        id,
+      },
+      data: {
+        ...parsedBody.data,
+      },
+    });
+
+    return res.status(200).json({ task });
+  } catch (error: any) {
+    console.log(error);
+    if (error?.code === "P2025") {
+      return res.sendStatus(404);
+    }
+
+    res.sendStatus(500);
+  }
+});
 
 tasksRouter.put("/:id", async (req: Request, res: Response) => {
   try {
     const parsedBody = UpdateTaskBody.safeParse(req.body);
     const parsedParams = UpdateTaskParams.safeParse(req.params);
 
-    if (!parsedBody.success) {
-      return res.status(400).json(parsedBody.error.flatten());
+    if (!parsedParams.success) {
+      return res.status(400).json(parsedParams.error.flatten);
     }
 
-    if (!parsedParams.success) {
-      return res.status(400).json(parsedParams.error.flatten());
+    if (!parsedBody.success) {
+      return res.status(400).json(parsedBody.error.flatten());
     }
 
     const { id } = parsedParams.data;

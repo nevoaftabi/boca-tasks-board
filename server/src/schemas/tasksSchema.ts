@@ -1,8 +1,12 @@
-import { boolean, z } from "zod";
+import { z } from "zod";
 
-export const DeleteTask = z.object({
+export const DeleteTaskParams = z.object({
   id: z.uuid(),
 });
+
+export const DeleteTaskBody = z.object({
+  password: z.string()
+})
 
 export const GetAllTasks = z.object({
   includeClaims: z
@@ -13,6 +17,10 @@ export const GetAllTasks = z.object({
 
 export const GetTask = z.object({
   id: z.uuid(),
+  includeClaims: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export const CreateTask = z.object({
@@ -21,6 +29,7 @@ export const CreateTask = z.object({
   city: z.string().trim().min(1),
   description: z.string().trim().min(1),
   pay: z.number().min(10),
+  password: z.string().trim().min(5),
 });
 
 export const UpdateTaskBody = z.object({
@@ -49,22 +58,4 @@ export const PatchTaskBody = z
 
 export const PatchTaskParams = z.object({
   id: z.uuid(),
-});
-
-export const CreateClaimBody = z.object({
-  claimerName: z.string().trim().min(1),
-  claimerEmail: z.email(),
-});
-
-export const CreateClaimParams = z.object({
-  taskId: z.uuid(),
-});
-
-export const GetClaimsParams = z.object({
-  taskId: z.uuid(),
-});
-
-export const GetClaimParms = z.object({
-  taskId: z.uuid(),
-  claimId: z.uuid(),
 });

@@ -22,13 +22,20 @@ model Task {
     createdAt DateTime @default(now())
     claims Claim[]
     city String
+    password String
 }
 
 model Claim {
     id String @id @default(uuid())
     taskId String @unique
-    task Task @relation(fields: [taskId], references: [id])
+    task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
     claimerName String
     claimerEmail String
     createdAt DateTime @default(now())
+    password String
+
+    // Creates a database index on the taskId column in the Claim table
+    // Result: faster lookups for all claim for a task queries, because the db can jump right to matching rows
+    // instead of scanning the whole table
+    @@index([taskId])
 }
