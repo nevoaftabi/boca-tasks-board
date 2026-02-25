@@ -4,9 +4,15 @@ export const DeleteTaskParams = z.object({
   id: z.uuid(),
 });
 
-export const DeleteTaskBody = z.object({
-  password: z.string()
-})
+export const DeleteTaskBody = z
+  .object({
+    password: z.string(),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    error: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 export const GetAllTasks = z.object({
   includeClaims: z
@@ -23,22 +29,36 @@ export const GetTask = z.object({
     .transform((v) => v === "true"),
 });
 
-export const CreateTask = z.object({
-  title: z.string().trim().min(1),
-  category: z.string().trim().min(1),
-  city: z.string().trim().min(1),
-  description: z.string().trim().min(1),
-  pay: z.number().min(10),
-  password: z.string().trim().min(5),
-});
+export const CreateTaskBody = z
+  .object({
+    title: z.string().trim().min(1),
+    category: z.string().trim().min(1),
+    city: z.string().trim().min(1),
+    description: z.string().trim().min(1),
+    pay: z.number().min(10),
+    password: z.string().trim().min(5),
+    confirmPassword: z.string().trim().min(5),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    error: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
-export const UpdateTaskBody = z.object({
-  title: z.string().trim().min(1),
-  category: z.string().trim().min(1),
-  city: z.string().trim().min(1),
-  description: z.string().trim().min(1),
-  pay: z.number().min(10),
-});
+export const UpdateTaskBody = z
+  .object({
+    title: z.string().trim().min(1),
+    category: z.string().trim().min(1),
+    city: z.string().trim().min(1),
+    description: z.string().trim().min(1),
+    pay: z.number().min(10),
+    newPassword: z.string().trim().min(5).optional(),
+    confirmPassword: z.string().trim().min(5).optional(),
+  })
+  .refine(
+    (data) =>
+      data.newPassword ? data.newPassword === data.confirmPassword : true,
+    { path: ["confirmPassword"], error: "Passwords do not match" },
+  );
 
 export const UpdateTaskParams = z.object({
   id: z.uuid(),

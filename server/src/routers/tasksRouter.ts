@@ -3,7 +3,7 @@
 import express, { Router, Request, Response } from "express";
 import {
   DeleteTaskParams,
-  CreateTask,
+  CreateTaskBody,
   PatchTaskBody,
   PatchTaskParams,
   GetAllTasks,
@@ -114,48 +114,42 @@ tasksRouter.delete("/:id", async (req: Request, res: Response) => {
     const { id } = parsedParams.data;
     const { password } = parsedBody.data;
 
-    const task = await prismaClient.task.findUnique({
-      where: {
-        id,
-      },
-      select: {
-        password: true,
-      },
+    const deleted = await prismaClient.$transaction(async (tx) => {
+      const task = await tx.task.findUnique({
+        where: { id },
+        select: { password: true },
+      });
+
+      if (!task) return { status: 404 as const };
+
+      const ok = await verifyPassword(password, task.password);
+      if (!ok) return { status: 401 as const };
+
+      await tx.task.delete({ where: { id } });
+      return { status: 204 as const };
     });
 
-    if (!task) {
-      return res.sendStatus(404);
-    }
-
-    const validPassword = await verifyPassword(password, task.password);
-
-    if (validPassword) {
-      await prismaClient.task.delete({ where: { id } });
-      return res.sendStatus(204);
-    }
-
-    res.sendStatus(401);
+    return res.sendStatus(deleted.status);
   } catch (error: any) {
-    if (error?.code === "P2025") {
-      console.log(`ERROR: A user tried to delete a task that doesn't exist.`);
-      return res.sendStatus(404);
-    }
-
     console.log(error);
-    res.sendStatus(500);
+    return res.sendStatus(500);
   }
 });
 
 tasksRouter.post("/", async (req: Request, res: Response) => {
   try {
-    const parsed = CreateTask.safeParse(req.body);
+    const parsed = CreateTaskBody.safeParse(req.body);
 
     if (!parsed.success) return res.status(400).json(parsed.error.flatten());
 
-    const hashedPassword = await hashPassword(parsed.data.password);
+    const { confirmPassword, ...data } = parsed.data;
+    const hashedPassword = await hashPassword(data.password);
 
     const task = await prismaClient.task.create({
-      data: { ...parsed.data, password: hashedPassword },
+      data: {
+        ...data,
+        password: hashedPassword,
+      },
     });
 
     return res.status(201).json({ id: task.id });
@@ -205,7 +199,7 @@ tasksRouter.put("/:id", async (req: Request, res: Response) => {
     const parsedParams = UpdateTaskParams.safeParse(req.params);
 
     if (!parsedParams.success) {
-      return res.status(400).json(parsedParams.error.flatten);
+      return res.status(400).json(parsedParams.error.flatten());
     }
 
     if (!parsedBody.success) {
@@ -213,17 +207,23 @@ tasksRouter.put("/:id", async (req: Request, res: Response) => {
     }
 
     const { id } = parsedParams.data;
+    const { newPassword } = parsedBody.data;
 
-    const task = await prismaClient.task.update({
-      where: {
-        id,
-      },
-      data: {
-        ...parsedBody.data,
-      },
+    const updated = await prismaClient.$transaction(async (tx) => {
+      const task = await tx.task.findUnique({
+        where: { id },
+        select: { password: true },
+      });
+
+      if (!task) return { status: 404 as const };
+
+      const ok = await verifyPassword(newPassword, task.password);
+      if (!ok) return { status: 401 as const };
+
+      await tx.task.delete({ where: { id } });
+      return { status: 204 as const };
     });
-
-    return res.status(200).json({ task });
+    return res.sendStatus(updated.status);
   } catch (error) {
     console.log(error);
     if (error.code === "P2025") {
